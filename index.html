@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>进制转换</title>
+  <link rel="manifest" href="/base-converter/manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/base-converter/sw.js');
+    }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 16px;
+      max-width: 500px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      margin-bottom: 16px;
+      color: #111;
+    }
+
+    .mode-switch {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 10px 0;
+      font-size: 1rem;
+      font-weight: bold;
+      border: 2px solid #ddd;
+      background: white;
+      color: #888;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn.active {
+      background: #007aff;
+      color: white;
+      border-color: #007aff;
+    }
+
+    .input-section {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #555;
+    }
+    input {
+      width: 100%;
+      padding: 14px;
+      font-size: 1.4rem;
+      font-weight: bold;
+      text-align: center;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      background: white;
+      outline: none;
+      font-family: inherit;
+      user-select: none;
+    }
+    input:focus {
+      border-color: #007aff;
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-bottom: 16px;
+      user-select: none;
+    }
+    .keypad button {
+      padding: 12px 0;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      color: #333;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.15s;
+    }
+    .keypad button:active {
+      background: #e0e0e0;
+      transform: scale(0.95);
+    }
+    .keypad button.op {
+      color: #007aff;
+    }
+    .keypad button.equal {
+      background: #007aff;
+      color: white;
+    }
+    .keypad button.clear {
+      color: #ff3b30;
+    }
+    .keypad button.backspace {
+      font-size: 1.4rem;
+    }
+
+    .results {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+    }
+    .result-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .result-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .result-label {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .result-value {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #007aff;
+      font-family: "SF Mono", "Menlo", "Courier New", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+    .copy-btn {
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      flex-shrink: 0;
+      margin-left: 10px;
+      margin-top: 2px;
+      transition: background 0.2s;
+    }
+    .copy-btn:active { background: #005bb5; }
+    .copy-btn.copied { background: #34c759; }
+
+    .bottom-btn {
+      margin-top: 16px;
+      background: #ff3b30;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      touch-action: manipulation;
+    }
+    .bottom-btn:active { background: #cc2f28; }
+  </style>
+</head>
+<body>
+  <h1>🔢 进制转换</h1>
+
+  <div class="mode-switch">
+    <button id="mode-dec" class="mode-btn active">DEC</button>
+    <button id="mode-hex" class="mode-btn">HEX</button>
+  </div>
+
+  <div class="input-section">
+    <label id="input-label">输入十进制整数或算式</label>
+    <input type="text" id="number-input" readonly placeholder="例如 255 或 3+5*2">
+  </div>
+
+  <div class="keypad" id="keypad"></div>
+
+  <div class="results">
+    <div class="result-card">
+      <div class="result-info">
+        <div class="result-label">十进制 (DEC)</div>
+        <div class="result-value" id="dec-result">—</div>
+      </div>
+      <button class="copy-btn" data-target="dec-result">复制</button>
+    </div>
+    <div class="result-card">
+      <div class="result-info">
+        <div class="result-label">十六进制 (HEX)</div>
+        <div class="result-value" id="hex-result">—</div>
+      </div>
+      <button class="copy-btn" data-target="hex-result">复制</button>
+    </div>
+    <div class="result-card">
+      <div class="result-info">
+        <div class="result-label">二进制 (BIN)</div>
+        <div class="result-value" id="bin-result" data-raw="">—</div>
+      </div>
+      <button class="copy-btn" data-target="bin-result">复制</button>
+    </div>
+  </div>
+
+  <button class="bottom-btn" id="clear-btn">清空</button>
+
+  <script>
+    (function() {
+      const modeDecBtn = document.getElementById('mode-dec');
+      const modeHexBtn = document.getElementById('mode-hex');
+      const inputLabel = document.getElementById('input-label');
+      const input = document.getElementById('number-input');
+      const keypadEl = document.getElementById('keypad');
+      const decResult = document.getElementById('dec-result');
+      const hexResult = document.getElementById('hex-result');
+      const binResult = document.getElementById('bin-result');
+      const clearBtn = document.getElementById('clear-btn');
+
+      let currentMode = 'dec';
+
+      // 键盘布局定义：功能键用对象 {text, role}，普通键用字符串
+      const decKeys = [
+        [{text:'C', role:'clear'}, '⌫', '(', ')', '/'],
+        ['7','8','9','*','-'],
+        ['4','5','6','+', {text:'=', role:'equal'}],
+        ['1','2','3','0','.']
+      ];
+      const hexKeys = [
+        [{text:'C', role:'clear'}, '⌫', '(', ')', '/'],
+        ['7','8','9','*','-'],
+        ['4','5','6','+', {text:'=', role:'equal'}],
+        ['1','2','3','A','B'],
+        ['0','C','D','E','F']      // 这里的 'C' 是普通数字键
+      ];
+
+      function buildKeypad(keys) {
+        keypadEl.innerHTML = '';
+        keys.forEach(row => {
+          row.forEach(keyDef => {
+            const btn = document.createElement('button');
+            let displayText, role;
+
+            if (typeof keyDef === 'object') {
+              displayText = keyDef.text;
+              role = keyDef.role;
+            } else {
+              displayText = keyDef;
+              role = 'input'; // 默认普通输入键
+              // 根据文本自动加样式（操作符）
+              if (['+','-','*','/'].includes(displayText)) {
+                role = 'op';
+              }
+            }
+
+            btn.textContent = displayText;
+            btn.dataset.role = role;
+            btn.dataset.value = displayText;
+
+            // 设置样式类
+            if (role === 'clear') btn.className = 'clear';
+            else if (role === 'backspace') btn.className = 'backspace';
+            else if (role === 'equal') btn.className = 'equal';
+            else if (role === 'op') btn.className = 'op';
+
+            keypadEl.appendChild(btn);
+          });
+        });
+      }
+
+      keypadEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const role = btn.dataset.role;
+        const value = btn.dataset.value;
+
+        if (role === 'clear') {
+          input.value = '';
+        } else if (role === 'backspace') {
+          input.value = input.value.slice(0, -1);
+        } else if (role === 'equal') {
+          const expr = input.value.trim();
+          if (expr === '') return;
+          const num = evaluate(expr, currentMode);
+          if (!isNaN(num) && isFinite(num)) {
+            input.value = Number.isInteger(num) ? num.toString(10) : num.toFixed(10).replace(/\.?0+$/, '');
+          }
+        } else {
+          // 普通输入（数字、操作符、括号等）
+          input.value += value;
+        }
+        convert();
+      });
+
+      function evaluate(expr, mode) {
+        if (mode === 'dec') return safeEvalDec(expr);
+        else return safeEvalHex(expr);
+      }
+
+      function safeEvalDec(expr) {
+        if (!/^[\d\s\+\-\*\/\(\)\.xXa-fA-F]+$/.test(expr)) return NaN;
+        const normalized = expr.replace(/0x[0-9a-fA-F]+/g, m => parseInt(m, 16));
+        if (!/^[\d\s\+\-\*\/\(\)\.]+$/.test(normalized)) return NaN;
+        try {
+          const result = Function('"use strict"; return (' + normalized + ')')();
+          return (typeof result === 'number' && isFinite(result)) ? result : NaN;
+        } catch (e) { return NaN; }
+      }
+
+      function safeEvalHex(expr) {
+        if (!/^[\d\s\+\-\*\/\(\)\.a-fA-FxX]+$/.test(expr)) return NaN;
+        let normalized = expr.replace(/0x[0-9a-fA-F]+/g, m => parseInt(m, 16));
+        normalized = normalized.replace(/[0-9a-fA-F]+/g, m => parseInt(m, 16));
+        if (!/^[\d\s\+\-\*\/\(\)\.]+$/.test(normalized)) return NaN;
+        try {
+          const result = Function('"use strict"; return (' + normalized + ')')();
+          return (typeof result === 'number' && isFinite(result)) ? result : NaN;
+        } catch (e) { return NaN; }
+      }
+
+      function formatBinWithLineBreaks(num) {
+        if (isNaN(num) || !isFinite(num)) return { raw: '', display: '' };
+        const intPart = Math.floor(Math.abs(num));
+        const binStr = intPart.toString(2);
+        const spaced = binStr.replace(/(.)(?=(.{4})+$)/g, '$1 ');
+        const groups = spaced.split(' ');
+        const lines = [];
+        for (let i = 0; i < groups.length; i += 4) {
+          lines.push(groups.slice(i, i + 4).join(' '));
+        }
+        return {
+          raw: (num < 0 ? '-' : '') + spaced,
+          display: (num < 0 ? '-' : '') + lines.join('\n')
+        };
+      }
+
+      function convert() {
+        const raw = input.value.trim();
+        if (raw === '' || raw === '-') {
+          showEmpty();
+          return;
+        }
+        const num = evaluate(raw, currentMode);
+        if (isNaN(num) || !isFinite(num)) {
+          showInvalid();
+          return;
+        }
+        decResult.textContent = Number.isInteger(num) ? num.toString(10) : num.toFixed(10).replace(/\.?0+$/, '');
+        const intNum = Math.floor(Math.abs(num));
+        const hex = intNum.toString(16).toUpperCase();
+        hexResult.textContent = (num < 0 ? '-0x' : '0x') + hex;
+        const binFormatted = formatBinWithLineBreaks(num);
+        binResult.textContent = binFormatted.display;
+        binResult.setAttribute('data-raw', binFormatted.raw);
+      }
+
+      function showEmpty() {
+        decResult.textContent = '—';
+        hexResult.textContent = '—';
+        binResult.textContent = '—';
+        binResult.setAttribute('data-raw', '');
+      }
+      function showInvalid() {
+        decResult.textContent = '无效输入';
+        hexResult.textContent = '无效输入';
+        binResult.textContent = '无效输入';
+        binResult.setAttribute('data-raw', '');
+      }
+
+      function setMode(mode) {
+        currentMode = mode;
+        modeDecBtn.classList.toggle('active', mode === 'dec');
+        modeHexBtn.classList.toggle('active', mode === 'hex');
+        if (mode === 'dec') {
+          inputLabel.textContent = '输入十进制整数或算式';
+          buildKeypad(decKeys);
+        } else {
+          inputLabel.textContent = '输入十六进制整数或算式';
+          buildKeypad(hexKeys);
+        }
+        input.value = '';
+        showEmpty();
+        input.focus();
+      }
+
+      modeDecBtn.addEventListener('click', () => setMode('dec'));
+      modeHexBtn.addEventListener('click', () => setMode('hex'));
+
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.dataset.target;
+          const el = document.getElementById(targetId);
+          let text = targetId === 'bin-result' ? el.getAttribute('data-raw') : el.textContent;
+          if (text && text !== '—' && text !== '无效输入') {
+            navigator.clipboard.writeText(text).then(() => {
+              btn.textContent = '已复制';
+              btn.classList.add('copied');
+              setTimeout(() => {
+                btn.textContent = '复制';
+                btn.classList.remove('copied');
+              }, 1500);
+            }).catch(() => alert('复制失败'));
+          }
+        });
+      });
+
+      clearBtn.addEventListener('click', () => {
+        input.value = '';
+        showEmpty();
+        input.focus();
+      });
+
+      setMode('dec');
+      convert();
+    })();
+  </script>
+</body>
+</html>
