@@ -1,0 +1,9 @@
+{
+  "name": "进制转换",
+  "short_name": "进制转换",
+  "start_url": "/base-converter/",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#007aff",
+  "icons": []
+}
