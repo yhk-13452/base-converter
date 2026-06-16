@@ -248,19 +248,19 @@
 
       let currentMode = 'dec';
 
-      // 键盘布局定义：功能键用对象 {text, role}，普通键用字符串
+      // 键盘布局：每个键为字符串或 {text, role}
       const decKeys = [
-        [{text:'C', role:'clear'}, '⌫', '(', ')', '/'],
+        [{text:'C', role:'clear'}, {text:'⌫', role:'backspace'}, '(', ')', '/'],
         ['7','8','9','*','-'],
         ['4','5','6','+', {text:'=', role:'equal'}],
         ['1','2','3','0','.']
       ];
       const hexKeys = [
-        [{text:'C', role:'clear'}, '⌫', '(', ')', '/'],
+        [{text:'C', role:'clear'}, {text:'⌫', role:'backspace'}, '(', ')', '/'],
         ['7','8','9','*','-'],
         ['4','5','6','+', {text:'=', role:'equal'}],
         ['1','2','3','A','B'],
-        ['0','C','D','E','F']      // 这里的 'C' 是普通数字键
+        ['0','C','D','E','F']
       ];
 
       function buildKeypad(keys) {
@@ -275,11 +275,8 @@
               role = keyDef.role;
             } else {
               displayText = keyDef;
-              role = 'input'; // 默认普通输入键
-              // 根据文本自动加样式（操作符）
-              if (['+','-','*','/'].includes(displayText)) {
-                role = 'op';
-              }
+              role = 'input';
+              if (['+','-','*','/'].includes(displayText)) role = 'op';
             }
 
             btn.textContent = displayText;
@@ -297,6 +294,7 @@
         });
       }
 
+      // 键盘点击处理
       keypadEl.addEventListener('click', (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
@@ -315,12 +313,13 @@
             input.value = Number.isInteger(num) ? num.toString(10) : num.toFixed(10).replace(/\.?0+$/, '');
           }
         } else {
-          // 普通输入（数字、操作符、括号等）
+          // 普通输入（数字、操作符、括号、小数点、十六进制字母）
           input.value += value;
         }
         convert();
       });
 
+      // 安全求值函数
       function evaluate(expr, mode) {
         if (mode === 'dec') return safeEvalDec(expr);
         else return safeEvalHex(expr);
@@ -415,6 +414,7 @@
       modeDecBtn.addEventListener('click', () => setMode('dec'));
       modeHexBtn.addEventListener('click', () => setMode('hex'));
 
+      // 复制功能
       document.querySelectorAll('.copy-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const targetId = btn.dataset.target;
@@ -439,6 +439,7 @@
         input.focus();
       });
 
+      // 初始化
       setMode('dec');
       convert();
     })();
